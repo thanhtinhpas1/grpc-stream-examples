@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "./greeter_server";
+option java_multiple_files = true;
+option java_package = "io.grpc.greeter.server";
+option java_outer_classname = "ServerProto";
+
+package greeter_server;
+
+service GreeterService {
+    rpc GreetServerStream (GreetRequest) returns (stream GreetResponse);
+}
+
+message GreetRequest {
+    string id = 1;
+    string name = 2;
+    string date = 3;
+}
+
+message GreetResponse {
+    string reply = 1;
+}
