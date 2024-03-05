@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,4 +44,24 @@ func main() {
 
 		log.Printf("reply received: %v", resp.Reply)
 	}
+
+	clientStream, err := client.GreetClientStream(context.Background())
+	if err != nil {
+		log.Fatalf("failed to get client: %v", err)
+	}
+
+	for i := 0; i < 10; i++ {
+		clientStream.Send(&greeter_server.GreetRequest{
+			Name: "hello",
+			Id:   fmt.Sprintf("%d", i),
+			Date: "2006-01-02",
+		})
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	resp, err := clientStream.CloseAndRecv()
+	if err != nil {
+		log.Fatalf("failed to close client: %v", err)
+	}
+	log.Printf("reply received: %v", resp.Reply)
 }

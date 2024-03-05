@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -25,16 +26,32 @@ type serverImpl struct {
 }
 
 func (s *serverImpl) GreetServerStream(req *pb.GreetRequest, stream pb.GreeterService_GreetServerStreamServer) error {
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100; i++ {
 		stream.Send(&pb.GreetResponse{
 			Reply: fmt.Sprintf("%d", i),
 		})
 
-		if i%100 == 0 {
-			time.Sleep(5 * time.Second)
-		} else {
-			time.Sleep(300 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return nil
+}
+
+func (s *serverImpl) GreetClientStream(stream pb.GreeterService_GreetClientStreamServer) error {
+	var reqs []*pb.GreetRequest
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			stream.SendAndClose(&pb.GreetResponse{Reply: fmt.Sprintf("received total %d requests", len(reqs))})
+			break
 		}
+
+		if err != nil {
+			log.Fatalf("failed to received requests: %v", err)
+		}
+
+		log.Printf("received requests %v\n", req)
+		reqs = append(reqs, req)
 	}
 
 	return nil

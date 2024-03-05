@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GreeterServiceClient interface {
 	GreetServerStream(ctx context.Context, in *GreetRequest, opts ...grpc.CallOption) (GreeterService_GreetServerStreamClient, error)
+	GreetClientStream(ctx context.Context, opts ...grpc.CallOption) (GreeterService_GreetClientStreamClient, error)
 }
 
 type greeterServiceClient struct {
@@ -65,11 +66,46 @@ func (x *greeterServiceGreetServerStreamClient) Recv() (*GreetResponse, error) {
 	return m, nil
 }
 
+func (c *greeterServiceClient) GreetClientStream(ctx context.Context, opts ...grpc.CallOption) (GreeterService_GreetClientStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GreeterService_ServiceDesc.Streams[1], "/greeter_server.GreeterService/GreetClientStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &greeterServiceGreetClientStreamClient{stream}
+	return x, nil
+}
+
+type GreeterService_GreetClientStreamClient interface {
+	Send(*GreetRequest) error
+	CloseAndRecv() (*GreetResponse, error)
+	grpc.ClientStream
+}
+
+type greeterServiceGreetClientStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *greeterServiceGreetClientStreamClient) Send(m *GreetRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *greeterServiceGreetClientStreamClient) CloseAndRecv() (*GreetResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(GreetResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterServiceServer is the server API for GreeterService service.
 // All implementations must embed UnimplementedGreeterServiceServer
 // for forward compatibility
 type GreeterServiceServer interface {
 	GreetServerStream(*GreetRequest, GreeterService_GreetServerStreamServer) error
+	GreetClientStream(GreeterService_GreetClientStreamServer) error
 	mustEmbedUnimplementedGreeterServiceServer()
 }
 
@@ -79,6 +115,9 @@ type UnimplementedGreeterServiceServer struct {
 
 func (UnimplementedGreeterServiceServer) GreetServerStream(*GreetRequest, GreeterService_GreetServerStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method GreetServerStream not implemented")
+}
+func (UnimplementedGreeterServiceServer) GreetClientStream(GreeterService_GreetClientStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GreetClientStream not implemented")
 }
 func (UnimplementedGreeterServiceServer) mustEmbedUnimplementedGreeterServiceServer() {}
 
@@ -114,6 +153,32 @@ func (x *greeterServiceGreetServerStreamServer) Send(m *GreetResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _GreeterService_GreetClientStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GreeterServiceServer).GreetClientStream(&greeterServiceGreetClientStreamServer{stream})
+}
+
+type GreeterService_GreetClientStreamServer interface {
+	SendAndClose(*GreetResponse) error
+	Recv() (*GreetRequest, error)
+	grpc.ServerStream
+}
+
+type greeterServiceGreetClientStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *greeterServiceGreetClientStreamServer) SendAndClose(m *GreetResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *greeterServiceGreetClientStreamServer) Recv() (*GreetRequest, error) {
+	m := new(GreetRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterService_ServiceDesc is the grpc.ServiceDesc for GreeterService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -126,6 +191,11 @@ var GreeterService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "GreetServerStream",
 			Handler:       _GreeterService_GreetServerStream_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "GreetClientStream",
+			Handler:       _GreeterService_GreetClientStream_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "proto/service.proto",
