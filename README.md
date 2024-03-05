@@ -193,3 +193,58 @@ func (s *serverImpl) GreetClientStream(stream pb.GreeterService_GreetClientStrea
 	log.Printf("reply received: %v", resp.Reply)
 ```
 </details>
+
+<details>
+<summary>Bidirection Stream Implement</summary>
+
+### Server Implementation
+```go
+func (s *serverImpl) BidirectionalStream(stream pb.GreeterService_BidirectionalStreamServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			log.Fatalf("failed to receive requests: %v", err)
+		}
+
+		log.Printf("server bidirection received: %v", req)
+		time.Sleep(50 * time.Millisecond)
+		stream.Send(&pb.GreetResponse{Reply: fmt.Sprintf("stream received request has id %s", req.Id)})
+	}
+
+	return nil
+}
+```
+
+### Client Implementation
+```go
+var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		for {
+			resp, err := biStream.Recv()
+			if err == io.EOF {
+				wg.Done()
+				break
+			}
+			if err != nil {
+				log.Fatalf("failed to receive response: %v", err)
+			}
+
+			log.Printf("client bidirectional stream received: %v", resp.Reply)
+		}
+	}()
+	for i := 0; i < 10; i++ {
+		biStream.Send(&greeter_server.GreetRequest{
+			Name: "hello",
+			Id:   fmt.Sprintf("%d", i),
+			Date: "2006-01-02",
+		})
+	}
+
+	wg.Wait()
+```
+</details>

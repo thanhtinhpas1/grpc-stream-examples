@@ -10,6 +10,7 @@ package greeter_server;
 service GreeterService {
     rpc GreetServerStream (GreetRequest) returns (stream GreetResponse);
     rpc GreetClientStream (stream GreetRequest) returns (GreetResponse);
+    rpc BidirectionalStream (stream GreetRequest) returns (stream GreetResponse);
 }
 
 message GreetRequest {

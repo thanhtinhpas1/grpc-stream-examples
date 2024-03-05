@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -64,4 +65,35 @@ func main() {
 		log.Fatalf("failed to close client: %v", err)
 	}
 	log.Printf("reply received: %v", resp.Reply)
+
+	biStream, err := client.BidirectionalStream(context.Background())
+	if err != nil {
+		log.Fatalf("failed to bidirectional stream: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		for {
+			resp, err := biStream.Recv()
+			if err == io.EOF {
+				wg.Done()
+				break
+			}
+			if err != nil {
+				log.Fatalf("failed to receive response: %v", err)
+			}
+
+			log.Printf("client bidirectional stream received: %v", resp.Reply)
+		}
+	}()
+	for i := 0; i < 10; i++ {
+		biStream.Send(&greeter_server.GreetRequest{
+			Name: "hello",
+			Id:   fmt.Sprintf("%d", i),
+			Date: "2006-01-02",
+		})
+	}
+
+	wg.Wait()
 }

@@ -57,6 +57,25 @@ func (s *serverImpl) GreetClientStream(stream pb.GreeterService_GreetClientStrea
 	return nil
 }
 
+func (s *serverImpl) BidirectionalStream(stream pb.GreeterService_BidirectionalStreamServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			log.Fatalf("failed to receive requests: %v", err)
+		}
+
+		log.Printf("server bidirection received: %v", req)
+		time.Sleep(50 * time.Millisecond)
+		stream.Send(&pb.GreetResponse{Reply: fmt.Sprintf("stream received request has id %s", req.Id)})
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", flagPort))

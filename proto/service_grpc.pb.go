@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type GreeterServiceClient interface {
 	GreetServerStream(ctx context.Context, in *GreetRequest, opts ...grpc.CallOption) (GreeterService_GreetServerStreamClient, error)
 	GreetClientStream(ctx context.Context, opts ...grpc.CallOption) (GreeterService_GreetClientStreamClient, error)
+	BidirectionalStream(ctx context.Context, opts ...grpc.CallOption) (GreeterService_BidirectionalStreamClient, error)
 }
 
 type greeterServiceClient struct {
@@ -100,12 +101,44 @@ func (x *greeterServiceGreetClientStreamClient) CloseAndRecv() (*GreetResponse, 
 	return m, nil
 }
 
+func (c *greeterServiceClient) BidirectionalStream(ctx context.Context, opts ...grpc.CallOption) (GreeterService_BidirectionalStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GreeterService_ServiceDesc.Streams[2], "/greeter_server.GreeterService/BidirectionalStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &greeterServiceBidirectionalStreamClient{stream}
+	return x, nil
+}
+
+type GreeterService_BidirectionalStreamClient interface {
+	Send(*GreetRequest) error
+	Recv() (*GreetResponse, error)
+	grpc.ClientStream
+}
+
+type greeterServiceBidirectionalStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *greeterServiceBidirectionalStreamClient) Send(m *GreetRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *greeterServiceBidirectionalStreamClient) Recv() (*GreetResponse, error) {
+	m := new(GreetResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterServiceServer is the server API for GreeterService service.
 // All implementations must embed UnimplementedGreeterServiceServer
 // for forward compatibility
 type GreeterServiceServer interface {
 	GreetServerStream(*GreetRequest, GreeterService_GreetServerStreamServer) error
 	GreetClientStream(GreeterService_GreetClientStreamServer) error
+	BidirectionalStream(GreeterService_BidirectionalStreamServer) error
 	mustEmbedUnimplementedGreeterServiceServer()
 }
 
@@ -118,6 +151,9 @@ func (UnimplementedGreeterServiceServer) GreetServerStream(*GreetRequest, Greete
 }
 func (UnimplementedGreeterServiceServer) GreetClientStream(GreeterService_GreetClientStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method GreetClientStream not implemented")
+}
+func (UnimplementedGreeterServiceServer) BidirectionalStream(GreeterService_BidirectionalStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method BidirectionalStream not implemented")
 }
 func (UnimplementedGreeterServiceServer) mustEmbedUnimplementedGreeterServiceServer() {}
 
@@ -179,6 +215,32 @@ func (x *greeterServiceGreetClientStreamServer) Recv() (*GreetRequest, error) {
 	return m, nil
 }
 
+func _GreeterService_BidirectionalStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GreeterServiceServer).BidirectionalStream(&greeterServiceBidirectionalStreamServer{stream})
+}
+
+type GreeterService_BidirectionalStreamServer interface {
+	Send(*GreetResponse) error
+	Recv() (*GreetRequest, error)
+	grpc.ServerStream
+}
+
+type greeterServiceBidirectionalStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *greeterServiceBidirectionalStreamServer) Send(m *GreetResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *greeterServiceBidirectionalStreamServer) Recv() (*GreetRequest, error) {
+	m := new(GreetRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterService_ServiceDesc is the grpc.ServiceDesc for GreeterService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -195,6 +257,12 @@ var GreeterService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GreetClientStream",
 			Handler:       _GreeterService_GreetClientStream_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "BidirectionalStream",
+			Handler:       _GreeterService_BidirectionalStream_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},
